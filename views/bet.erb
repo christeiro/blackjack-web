@@ -1,0 +1,8 @@
+<h4>Please place your bet for first round</h4>
+
+<p><%= session[:player_name] %> has $<%= session[:balance] %></p>
+
+<form class="form-inline" action='/bet' method='post'>
+  <input class="input-mini" type="number" name="bet">
+  <button class="btn" type="submit">Make a bet</button>
+</form>
