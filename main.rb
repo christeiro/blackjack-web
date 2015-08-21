@@ -67,20 +67,19 @@ helpers do
     dealer_score = total(dealer_hand)
     
     if blackjack?(player_hand) && !blackjack?(dealer_hand)
-      session[:balance] += session[:bet] + session[:bet] * 1.5
+      session[:balance] += session[:bet] * 1.5
       @win = "#{session[:player_name]} wins with BLACKJACK."
     elsif !blackjack?(player_hand) && blackjack?(dealer_hand)
       @lost = "Dealer wins with BLACKJACK."
       session[:balance] -= session[:bet]
     elsif player_score <= BLACKJACK && (player_score > dealer_score || dealer_score > BLACKJACK)
-      session[:balance] += session[:bet] * 2
+      session[:balance] += session[:bet]
       @win = "Player wins!"
     elsif dealer_score <= BLACKJACK && (dealer_score > player_score || player_score > BLACKJACK)
       @lost = "Dealer wins!"
       session[:balance] -= session[:bet]
     else
       @win = "It's a tie!"
-      session[:balance] += session[:bet]
     end
     @player_turn = false
     @game_over = true
