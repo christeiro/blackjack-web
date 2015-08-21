@@ -52,16 +52,6 @@ helpers do
     total(card) == BLACKJACK and card.size == 2
   end
 
-  def announce_winner(player_score, dealer_score)
-    if dealer_score <= BLACKJACK && (dealer_score > player_score || player_score > BLACKJACK)
-      "Dealer Wins"
-    elsif player_score <= BLACKJACK && (player_score > dealer_score || dealer_score > BLACKJACK)
-      "#{session[:player_name]} wins!"
-    else
-      "It's a tie"
-    end
-  end
-
   def check_winner_calculate_balance(player_hand, dealer_hand)
     player_score = total(player_hand)
     dealer_score = total(dealer_hand)
@@ -94,8 +84,6 @@ before do
 end
 
 get '/' do
-  session[:game_started] = false
-  session[:player_turn] = true
   erb :index  
 end
 
