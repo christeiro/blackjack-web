@@ -63,23 +63,35 @@ helpers do
   end
 
   def check_winner_calculate_balance(player_hand, dealer_hand)
+    player_score = total(player_hand)
+    dealer_score = total(dealer_hand)
+    
     if blackjack?(player_hand) && !blackjack?(dealer_hand)
       session[:balance] += session[:bet] + session[:bet] * 1.5
       @win = "#{session[:player_name]} wins with BLACKJACK."
     elsif !blackjack?(player_hand) && blackjack?(dealer_hand)
       @lost = "Dealer wins with BLACKJACK."
-    elsif total(player_hand) > total(dealer_hand) || (total(player_hand) <= BLACKJACK && total(dealer_hand) > BLACKJACK)
+      session[:balance] -= session[:bet]
+    elsif player_score <= BLACKJACK && (player_score > dealer_score || dealer_score > BLACKJACK)
       session[:balance] += session[:bet] * 2
       @win = "Player wins!"
-    elsif total(player_hand) < total(dealer_hand) || (total(player_hand) > BLACKJACK && total(dealer_hand) <= BLACKJACK)
+    elsif dealer_score <= BLACKJACK && (dealer_score > player_score || player_score > BLACKJACK)
       @lost = "Dealer wins!"
+      session[:balance] -= session[:bet]
     else
       @win = "It's a tie!"
       session[:balance] += session[:bet]
     end
-    session[:game_started] = false
+    @player_turn = false
+    @game_over = true
   end
 
+end
+
+
+before do
+  @player_turn = true
+  @game_over = false
 end
 
 get '/' do
@@ -100,6 +112,7 @@ post '/user' do
 end
 
 get '/bet' do
+  redirect '/' if session[:balance] == 0
   erb :bet
 end
 
@@ -107,66 +120,76 @@ post '/bet' do
   if params[:bet].empty?
     @error = 'Bet is required'
     erb :bet
+  elsif params[:bet].to_i == 0 || params[:bet].to_i < 0
+    @error = 'Bet has to be greater than 0'
+    erb :bet
+  elsif params[:bet].to_i > session[:balance]
+    @error = "Bet is greater than a remaining balance $#{session[:balance]}"
+    erb :bet
   else
-    session[:balance] -= params[:bet].to_i
     session[:bet] = params[:bet].to_i
-    session[:game_over] = false
     redirect '/play'
   end
 end
 
-post '/game/*/*' do |participant, action|
-  if participant == 'player'
-    if action == 'hit'
-      session[:player_cards] << session[:deck].pop
-      @info = 'Player decided to hit!'
-    elsif action == 'stay'
-      @info = "Player decided to stay! Player has #{total(session[:player_cards])}"
-      session[:player_turn] = false
-    end
-  elsif participant == 'dealer'
-    if action == 'hit'
-      session[:dealer_cards] << session[:deck].pop
-    end
-  end
-  redirect '/play'
-end   
-
 get '/play' do
-  if !session[:game_started]
-    SUITS = ['H','D','C','S']
-    CARDS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A']
-    session[:deck] = SUITS.product(CARDS).shuffle!
+  redirect '/' if !session[:player_name]
+  redirect '/bet' if !session[:bet]
+  redirect '/' if session[:balance] - session[:bet] < 0
+  
+  SUITS = ['H','D','C','S']
+  CARDS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A']
+  session[:deck] = SUITS.product(CARDS).shuffle!
 
-    session[:game_started] = true
-    session[:player_turn] = true
-    session[:game_over] = false
-
-    session[:player_cards] = []
-    session[:dealer_cards] = []
-    session[:player_cards] << session[:deck].pop
-    session[:dealer_cards] << session[:deck].pop
-    session[:player_cards] << session[:deck].pop
-    session[:dealer_cards] << session[:deck].pop
-
-    # session[:player_cards] = [['H','A'],['H','K']]
-  end
+  session[:player_cards] = []
+  session[:dealer_cards] = []
+  session[:player_cards] << session[:deck].pop
+  session[:dealer_cards] << session[:deck].pop
+  session[:player_cards] << session[:deck].pop
+  session[:dealer_cards] << session[:deck].pop
   
   if blackjack?(session[:player_cards]) 
     session[:player_turn] = false
-    @info = "#{session[:player_name]} got BLACKJACK. Checking dealers card" 
-  elsif total(session[:player_cards]) > BLACKJACK
-    session[:player_turn] = false
-    @info = "#{session[:player_name]} busted!"
-  end
-
-  if !session[:player_turn] && total(session[:dealer_cards]) >= DEALER_MIN
-    session[:game_over] = true
+    @player_turn = false
+    @game_over = true
+    @info = "#{session[:player_name]} got BLACKJACK. Showing dealers card"
     check_winner_calculate_balance(session[:player_cards], session[:dealer_cards])
   end
+  
   erb :play
 end
 
+post '/play/player/hit' do
+  session[:player_cards] << session[:deck].pop
+  player_score = total(session[:player_cards])
+
+  if player_score > BLACKJACK
+    @game_over = true
+    @player_turn = false
+    check_winner_calculate_balance(session[:player_cards], session[:dealer_cards])
+  end    
+  erb :play, layout:false
+end
+
+post '/play/player/stay' do
+  @info = "#{session[:player_name]} decided to stay at #{total(session[:player_cards])}! Showing dealer cards."
+  @player_turn = false
+  if total(session[:dealer_cards]) >= DEALER_MIN
+    @game_over = true
+    check_winner_calculate_balance(session[:player_cards], session[:dealer_cards])
+  end
+  erb :play, layout: false
+end
+
+post '/play/dealer/hit' do
+  session[:dealer_cards] << session[:deck].pop
+  @player_turn = false
+  if total(session[:dealer_cards]) >= DEALER_MIN
+    @game_over = true
+    check_winner_calculate_balance(session[:player_cards], session[:dealer_cards])
+  end
+  erb :play, layout: false
+end
 
 get '/exit' do
   erb :exit
