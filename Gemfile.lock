@@ -1,6 +1,7 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    ruby (2.2.1)
     coderay (1.0.9)
     daemons (1.1.9)
     eventmachine (1.0.7)
